@@ -1,0 +1,8 @@
+Voix : extrait deja utilise pour Swell Vocal Lift et Space & Time. AcoustiAngel, Freesound #739037, CC0.
+https://freesound.org/people/AcoustiAngel/sounds/739037/
+Rendu hors ligne par Tools/RenderDemo.cpp avec ReverbProcessor, le meme code que le VST3 / Standalone 0.1.0.
+Chaque fichier AVANT-APRES : voix seche 8 s, pause 0,6 s, meme phrase dans la reverb, puis la queue.
+00-DEMO-TOUS-LES-PRESETS : voix seche puis les 10 presets a la suite (queues raccourcies a 4 s max).
+Mix utilise : Big Hall Vocal 42, Vocal Plate 42, Studio Live 38, Echo Chamber 40, Cathedral 38,
+Dub Spring 38, Stadium 40, Lo-Fi Plate 42, Infinite Space 36, Gated Drums 45. Autres reglages = ceux du preset.
+Securite : si un fichier depasse -1 dBFS il est baisse (aucun ne l'a ete, pic max -6,1 dBFS).
