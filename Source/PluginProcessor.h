@@ -1,9 +1,13 @@
 #pragma once
 #include <juce_audio_utils/juce_audio_utils.h>
+#include "Licence/SwellLicence.h"
 #include "ReverbEngine.h"
 
 class ReverbProcessor : public juce::AudioProcessor {
 public:
+    // Licence Swell : partagée par toutes les instances ; silence tant que le plugin n'est pas activé.
+    juce::SharedResourcePointer<swell::Licence> licence;
+
     ReverbProcessor();
     juce::AudioProcessorValueTreeState state;
     // Block peaks for the LED meters (linear gain, written by the audio thread).

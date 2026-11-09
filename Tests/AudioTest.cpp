@@ -48,6 +48,7 @@ std::vector<float> impulse(ReverbProcessor& p, double seconds) {
 const char* eqGains[4] { "eqLowGain", "eqMid1Gain", "eqMid2Gain", "eqHighGain" };
 
 int main() {
+    swell::Licence::unlockForTesting(); // rendu hors ligne, sans fichier de licence
     try {
         juce::ScopedJuceInitialiser_GUI gui;
         // Every program: bounded, finite, and its tail dies away.

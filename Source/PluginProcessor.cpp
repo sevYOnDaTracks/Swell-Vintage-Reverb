@@ -95,7 +95,10 @@ void ReverbProcessor::prepareToPlay(double sr, int block) {
     wetGain.setCurrentAndTargetValue(off ? 0.f : std::min(1.f, 2 * m));
 }
 
-void ReverbProcessor::processBlock(juce::AudioBuffer<float>& b, juce::MidiBuffer&) { render(b, false); }
+void ReverbProcessor::processBlock(juce::AudioBuffer<float>& b, juce::MidiBuffer&) {
+    if (! licence->isUnlocked()) { b.clear(); return; }
+    render(b, false);
+}
 void ReverbProcessor::processBlockBypassed(juce::AudioBuffer<float>& b, juce::MidiBuffer&) { render(b, true); }
 
 void ReverbProcessor::render(juce::AudioBuffer<float>& b, bool bypassed) {
@@ -177,5 +180,5 @@ bool ReverbProcessor::loadUserPreset(const juce::File& f) {
     return true;
 }
 
-juce::AudioProcessorEditor* ReverbProcessor::createEditor() { return new ReverbEditor(*this); }
+juce::AudioProcessorEditor* ReverbProcessor::createEditor() { return swell::LicenceGuard::attach(new ReverbEditor(*this)); }
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new ReverbProcessor(); }

@@ -2,6 +2,7 @@
 #include "../Source/PluginEditor.h"
 // Renders the editor to a PNG: ReverbSnapshot <out.png> [program] [eq]
 int main(int argc, char** argv) {
+    swell::Licence::unlockForTesting(); // rendu hors ligne, sans fichier de licence
     juce::ScopedJuceInitialiser_GUI gui;
     ReverbProcessor p;
     if (argc > 2) p.loadProgram(juce::String(argv[2]).getIntValue());
