@@ -134,4 +134,6 @@ public:
 private:
     Panel panel;
     float scale = 1;
+    bool ready = false;
+    std::unique_ptr<juce::PropertiesFile> props;
 };

@@ -291,7 +291,7 @@ Panel::Panel(ReverbProcessor& p) : proc(p), eq(p) {
     save.onClick = [this] { savePreset(); }; folder.onClick = [this] { folderMenu(); }; settings.onClick = [this] { settingsMenu(); };
     help.onClick = [] {
         juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::NoIcon, "Swell Reverb",
-            "Vintage Reverb - version 0.2\nSwell Audio, by @sevyondatracks\n\nDouble-clic sur un bouton : valeur par defaut.\nShift + glisser : reglage fin.\nLes presets ne touchent jamais au Mix ni au Gain.");
+            "Vintage Reverb - version 0.2.1\nSwell Audio, by @sevyondatracks\n\nDouble-clic sur un bouton : valeur par defaut.\nShift + glisser : reglage fin.\nLes presets ne touchent jamais au Mix ni au Gain.");
     };
     showTab(false);
     refreshNames();
@@ -382,6 +382,8 @@ void Panel::paint(juce::Graphics& g) {
         }
     }
     g.setColour(juce::Colours::black); g.drawRect(face, 1);
+    g.setColour(dim.withAlpha(.8f)); g.setFont(vui::font(10, false, .04f));
+    g.drawText("v" JucePlugin_VersionString "  /  by @sevyondatracks", juce::Rectangle<float>(X0 + 700, (float) H - 14, 268, 12), juce::Justification::centredRight, false);
     for (auto pt : { juce::Point<float>(X0 + 12, 12), { X0 + 988, 12 }, { X0 + 12, (float) H - 12 }, { X0 + 988, (float) H - 12 } }) vui::screw(g, pt.x, pt.y);
 }
 
@@ -479,10 +481,20 @@ void Panel::settingsMenu() {
 //============================================================================== Editor
 ReverbEditor::ReverbEditor(ReverbProcessor& p) : AudioProcessorEditor(p), panel(p) {
     addAndMakeVisible(panel);
-    panel.onScale = [this](float s) { scale = s; setSize(juce::roundToInt(Panel::W * s), juce::roundToInt(Panel::H * s)); };
-    setSize(Panel::W, Panel::H);
+    juce::PropertiesFile::Options o;
+    o.applicationName = "Swell Reverb"; o.filenameSuffix = ".settings"; o.folderName = "Swell Audio"; o.osxLibrarySubFolder = "Application Support";
+    props = std::make_unique<juce::PropertiesFile>(o);
+    scale = juce::jlimit(.6f, 2.f, (float) props->getDoubleValue("scale", 1.0));
+    panel.onScale = [this](float s) { setSize(juce::roundToInt(Panel::W * s), juce::roundToInt(Panel::H * s)); };
+    setResizable(true, true);
+    setResizeLimits(juce::roundToInt(Panel::W * .6f), juce::roundToInt(Panel::H * .6f), Panel::W * 2, Panel::H * 2);
+    getConstrainer()->setFixedAspectRatio((double) Panel::W / Panel::H);
+    setSize(juce::roundToInt(Panel::W * scale), juce::roundToInt(Panel::H * scale));
+    ready = true;
 }
 void ReverbEditor::resized() {
+    scale = (float) getWidth() / (float) Panel::W;
     panel.setBounds(0, 0, Panel::W, Panel::H);
     panel.setTransform(juce::AffineTransform::scale(scale));
+    if (ready) { props->setValue("scale", (double) scale); props->saveIfNeeded(); }
 }
