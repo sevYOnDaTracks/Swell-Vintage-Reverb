@@ -3,7 +3,7 @@
 #include "VintageUI.h"
 
 namespace {
-const juce::Colour ink { 0xffeadfc6 }, dim { 0xffa89f8c }, muted { 0xff6e675a }, well { 0xff0f0f10 }, lineDark { 0xff0b0b0c };
+const juce::Colour ink { 0xfff4f4f2 }, dim { 0xffa6a6a6 }, muted { 0xff6a6a6a }, well { 0xff0f0f10 }, lineDark { 0xff0b0b0c };
 constexpr float X0 = 34; // left edge of the metal face (after the wooden cheek)
 
 juce::Font uiFont(float size, bool bold = false, float kerning = 0) {
@@ -365,7 +365,7 @@ void Panel::paint(juce::Graphics& g) {
     g.setColour(lineDark); g.drawHorizontalLine(58, X0, X0 + 1000);
     g.setColour(juce::Colours::white.withAlpha(.04f)); g.drawHorizontalLine(59, X0, X0 + 1000);
     vui::brand(g, logo, X0 + 24, 11);
-    drawLabel(g, "VINTAGE  REVERB", { X0 + 260, 14, 480, 30 }, 22, ink, juce::Justification::centred, .62f);
+    drawLabel(g, "VINTAGE REVERB", { X0 + 260, 12, 480, 34 }, 24, ink, juce::Justification::centred, .16f, true);
     // Tabs and advanced area.
     g.setColour(juce::Colours::black.withAlpha(.25f)); g.fillRect(X0, 296.f, 1000.f, 34.f);
     g.setColour(lineDark); g.drawHorizontalLine(296, X0, X0 + 1000);
