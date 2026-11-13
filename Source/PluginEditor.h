@@ -12,12 +12,13 @@ public:
 class Knob : public juce::Component {
 public:
     Knob(ReverbProcessor&, const char* paramId, juce::String label, std::function<juce::String(float)> format, bool small);
-    void resized() override;
+    void place(juce::Rectangle<int> dial, juce::Rectangle<int> value);
     void paint(juce::Graphics&) override;
     juce::Slider slider;
 private:
     juce::String label;
     std::function<juce::String(float)> format;
+    juce::Rectangle<int> readout;
     bool small;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attach;
 };
@@ -100,11 +101,11 @@ public:
     void resized() override;
     std::function<void(float)> onScale;
     void filmTick() { timerCallback(); }
-    static constexpr int W = 1068, H = 510;
+    static constexpr int W = 1068, H = 534;
 private:
     ReverbProcessor& proc;
     ReverbLook look;
-    juce::Image logo, woodL, woodR, metal;
+
     std::vector<std::unique_ptr<Knob>> mainKnobs, advKnobs;
     std::unique_ptr<HSlider> vlf, earlyLate;
     PresetBox categoryBox, programBox;
@@ -124,7 +125,7 @@ private:
     void savePreset();
     void settingsMenu();
     void refreshNames();
-    void renderTextures();
+
 };
 
 class ReverbEditor : public juce::AudioProcessorEditor {

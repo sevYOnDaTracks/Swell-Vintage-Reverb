@@ -4,8 +4,20 @@
 
 namespace {
 const juce::Colour ink { 0xfff4f4f2 }, dim { 0xffa6a6a6 }, muted { 0xff6a6a6a }, well { 0xff0f0f10 }, lineDark { 0xff0b0b0c };
-constexpr float X0 = 34; // left edge of the metal face (after the wooden cheek)
-
+const juce::Image& faceplate() {
+    static const auto face = juce::ImageFileFormat::loadFrom(BinaryData::vintagereverb_png, BinaryData::vintagereverb_pngSize);
+    return face;
+}
+juce::Rectangle<int> panelRect(int x, int y, int w, int h) {
+    return juce::Rectangle<float>(x, y, w, h).transformedBy(
+        juce::AffineTransform::scale(Panel::W / 1774.f, Panel::H / 887.f)).toNearestInt();
+}
+// Recessed readouts mask the printed example values beneath the controls.
+void readoutWell(juce::Graphics& g, juce::Rectangle<float> dest) {
+    juce::ColourGradient well(juce::Colour(0xff161411), 0, dest.getY(),
+                              juce::Colour(0xff28231d), 0, dest.getBottom(), false);
+    g.setGradientFill(well); g.fillRoundedRectangle(dest, 2);
+}
 juce::Font uiFont(float size, bool bold = false, float kerning = 0) {
 #if JUCE_WINDOWS
     const char* face = "Segoe UI";
@@ -37,30 +49,23 @@ ReverbLook::ReverbLook() {
 }
 
 void ReverbLook::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float pos, float start, float end, juce::Slider& s) {
-    vui::knob(g, { (float) x, (float) y, (float) w, (float) h }, pos, start, end, s.getProperties()["small"], s.getProperties()["bipolar"], vui::cream);
+    const auto bounds = juce::Rectangle<float>(x, y, w, h);
+    juce::Path clip;
+    clip.addEllipse(bounds);
+    g.reduceClipRegion(clip);
+    g.addTransform(juce::AffineTransform::rotation(start + pos * (end - start) - .05f,
+                                                   bounds.getCentreX(), bounds.getCentreY()));
+    static const auto knob = faceplate().getClippedImage({127, 168, 199, 199});
+    g.drawImage(knob, bounds);
 }
 
 void ReverbLook::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, float pos, float, float, juce::Slider::SliderStyle, juce::Slider&) {
-    float cy = (float) y + (float) h / 2;
-    auto slot = juce::Rectangle<float>((float) x, cy - 3, (float) w, 6);
-    g.setColour(juce::Colours::black); g.fillRoundedRectangle(slot, 3);
-    g.setColour(juce::Colours::white.withAlpha(.06f)); g.drawRoundedRectangle(slot.translated(0, 1), 3, 1);
-    auto lit = slot.reduced(1.5f).withRight(pos);
-    g.setColour(vui::cream.withAlpha(.18f)); g.fillRoundedRectangle(lit.expanded(0, 2), 3);
-    g.setColour(vui::cream); g.fillRoundedRectangle(lit, 1.5f);
-    for (int i = 0; i <= 20; ++i) {
-        float tx = (float) x + (float) w * (float) i / 20;
-        g.setColour(vui::creamDim.withAlpha(i % 5 == 0 ? .55f : .25f));
-        g.drawVerticalLine((int) tx, cy + 8, cy + (i % 5 == 0 ? 13.f : 11.f));
-    }
-    // Fader cap: brushed metal with a centre line.
-    auto cap = juce::Rectangle<float>(pos - 11, cy - 12, 22, 24);
-    g.setColour(juce::Colours::black.withAlpha(.7f)); g.fillRoundedRectangle(cap.translated(0, 2), 3);
-    juce::ColourGradient m(juce::Colour(0xffd9d9d9), 0, cap.getY(), juce::Colour(0xff6c6c6c), 0, cap.getBottom(), false);
-    m.addColour(.45, juce::Colour(0xffa9a9a9)); m.addColour(.55, juce::Colour(0xff8a8a8a));
-    g.setGradientFill(m); g.fillRoundedRectangle(cap, 3);
-    g.setColour(juce::Colours::black); g.drawRoundedRectangle(cap, 3, 1);
-    g.setColour(juce::Colour(0xff2a2a2a)); g.fillRect(pos - .75f, cap.getY() + 3, 1.5f, cap.getHeight() - 6);
+    float cy = y + h * .5f;
+    auto track = juce::Rectangle<float>((float)x, cy - 4, (float)w, 8);
+    g.setColour(juce::Colour(0xff161410)); g.fillRoundedRectangle(track, 4);
+    g.setColour(vui::cream); g.fillRoundedRectangle(track.reduced(2).withRight(std::max(pos, track.getX()+2)), 2);
+    static const auto cap = faceplate().getClippedImage({685,408,44,41});
+    g.drawImage(cap, juce::Rectangle<float>(pos-13, cy-12, 26, 24));
 }
 
 //============================================================================== Knob
@@ -77,16 +82,16 @@ Knob::Knob(ReverbProcessor& p, const char* id, juce::String l, std::function<juc
     attach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.state, id, slider);
     if (auto* param = p.state.getParameter(id)) slider.setDoubleClickReturnValue(true, param->convertFrom0to1(param->getDefaultValue()));
 }
-void Knob::resized() {
-    auto r = getLocalBounds().reduced(0, 0);
-    r.removeFromTop(small ? 18 : 22); r.removeFromBottom(small ? 18 : 20);
-    int s = std::min(r.getWidth(), r.getHeight());
-    slider.setBounds(r.withSizeKeepingCentre(s, s));
+void Knob::place(juce::Rectangle<int> dial, juce::Rectangle<int> value) {
+    auto bounds = dial.getUnion(value);
+    setBounds(bounds);
+    slider.setBounds(dial - bounds.getPosition());
+    readout = value - bounds.getPosition();
 }
 void Knob::paint(juce::Graphics& g) {
-    auto r = getLocalBounds().toFloat();
-    drawLabel(g, small ? label : label.toUpperCase(), r.removeFromTop(small ? 18.f : 22.f), small ? 12.5f : 15.f, ink, juce::Justification::centred, small ? 0.f : .12f, !small);
-    vui::glowText(g, format((float) slider.getValue()), r.removeFromBottom(small ? 18.f : 20.f), vui::font(small ? 12.5f : 14.f), ink);
+    auto r = readout.toFloat();
+    readoutWell(g, r);
+    drawLabel(g, format((float)slider.getValue()), r, small ? 12.8f : 14.f, vui::cream);
 }
 
 //============================================================================== HSlider
@@ -100,13 +105,16 @@ HSlider::HSlider(ReverbProcessor& p, const char* id, juce::String l, std::functi
 }
 void HSlider::resized() { slider.setBounds(getLocalBounds().withTrimmedTop(18).reduced(0, 2)); }
 void HSlider::paint(juce::Graphics& g) {
-    auto r = getLocalBounds().toFloat().removeFromTop(16);
-    drawLabel(g, label, r, 11.5f, dim, juce::Justification::centredLeft, .12f);
-    drawLabel(g, format((float) slider.getValue()), r, 11.5f, ink, juce::Justification::centredRight);
+    readoutWell(g, getLocalBounds().toFloat());
+    auto r = getLocalBounds().toFloat().reduced(5, 1).removeFromTop(16);
+    drawLabel(g, label, r, 12.f, vui::cream, juce::Justification::centredLeft, .06f);
+    drawLabel(g, format((float) slider.getValue()), r, 12.f, vui::cream, juce::Justification::centredRight);
 }
 
 //============================================================================== PresetBox
-void PresetBox::paint(juce::Graphics& g) { vui::presetDisplay(g, getLocalBounds().toFloat().reduced(.5f), label); }
+void PresetBox::paint(juce::Graphics& g) { auto r = getLocalBounds().toFloat().reduced(49, 8);
+    g.setColour(juce::Colour(0xff2c1b0b)); g.fillRect(r);
+    drawLabel(g, label, r, 16, juce::Colour(0xffffcb76)); }
 void PresetBox::mouseDown(const juce::MouseEvent& e) {
     if (e.x < 34) { if (onPrev) onPrev(); }
     else if (e.x > getWidth() - 34) { if (onNext) onNext(); }
@@ -115,60 +123,25 @@ void PresetBox::mouseDown(const juce::MouseEvent& e) {
 
 //============================================================================== Meters
 void Meters::paint(juce::Graphics& g) {
-    static const char* names[5] { "INPUT", "OUTPUT", "EARLY", "LATE", "VLF" };
-    constexpr int leds = 20;
-    const float ledW = 9, gap = 4, x0 = 74, rowH = 22;
-    auto ledDb = [](int k) { return -60.f + (float) k * 3.15f; };
-    float y = 4;
+    // Each row covers the printed LED cells. Labels and dB ticks belong to the faceplate.
+    constexpr int rowY[] {0, 34, 97, 135, 172};
+    const float scale = getWidth() / 417.f;
     for (int row = 0; row < 5; ++row) {
-        if (row == 2) {
-            const float marks[7] { -60, -48, -36, -24, -12, -6, 0 };
-            for (float m : marks) {
-                float k = (m + 60) / 3.15f;
-                drawLabel(g, juce::String((int) m), { x0 + k * (ledW + gap) - 10, y, ledW + 20, 14 }, 10, muted);
-            }
-            y += 16;
+        auto strip = juce::Rectangle<float>(0, rowY[row]*scale, (float)getWidth(), 19*scale);
+        g.setColour(juce::Colour(0xff141210)); g.fillRect(strip);
+        for (int led = 0; led < 20; ++led) {
+            auto cell = juce::Rectangle<float>((5+led*20.4f)*scale, strip.getY()+4*scale, 15*scale, 10*scale);
+            vui::led(g, cell, led/19.f, level[(size_t)row] >= -60 + led*(60.f/19));
         }
-        drawLabel(g, names[row], { 0, y, x0 - 10, rowH }, 11, dim, juce::Justification::centredRight, .12f);
-        g.setColour(juce::Colours::black.withAlpha(.6f)); g.fillRoundedRectangle(x0 - 4, y + 2, leds * (ledW + gap) + 4, 18, 3);
-        for (int k = 0; k < leds; ++k) {
-            auto led = juce::Rectangle<float>(x0 + (float) k * (ledW + gap), y + 6, ledW, 10);
-            vui::led(g, led, (float) k / (leds - 1), level[(size_t) row] >= ledDb(k));
-        }
-        y += rowH;
     }
 }
 
 //============================================================================== Icons and tabs
 void IconButton::paint(juce::Graphics& g) {
-    auto r = getLocalBounds().toFloat().reduced(2);
-    float s = r.getWidth() / 24.f;
-    juce::Path p;
-    auto P = [&](float x, float y) { return juce::Point<float>(r.getX() + x * s, r.getY() + y * s); };
-    switch (kind) {
-        case Save:
-            p.startNewSubPath(P(5, 4)); p.lineTo(P(16, 4)); p.lineTo(P(19, 7)); p.lineTo(P(19, 20)); p.lineTo(P(5, 20)); p.closeSubPath();
-            p.startNewSubPath(P(8, 4)); p.lineTo(P(8, 9)); p.lineTo(P(15, 9)); p.lineTo(P(15, 4));
-            p.startNewSubPath(P(8, 20)); p.lineTo(P(8, 14)); p.lineTo(P(16, 14)); p.lineTo(P(16, 20));
-            break;
-        case Folder:
-            p.startNewSubPath(P(3, 7)); p.lineTo(P(9, 7)); p.lineTo(P(11, 9)); p.lineTo(P(21, 9)); p.lineTo(P(21, 19)); p.lineTo(P(3, 19)); p.closeSubPath();
-            break;
-        case Settings:
-            p.addEllipse(r.getCentreX() - 3 * s, r.getCentreY() - 3 * s, 6 * s, 6 * s);
-            for (int i = 0; i < 8; ++i) {
-                float a = (float) i * juce::MathConstants<float>::pi / 4, c = std::cos(a), sn = std::sin(a);
-                p.startNewSubPath(P(12 + 6 * c, 12 + 6 * sn)); p.lineTo(P(12 + 9.5f * c, 12 + 9.5f * sn));
-            }
-            break;
-        case Help:
-            p.addEllipse(P(3, 3).x, P(3, 3).y, 18 * s, 18 * s);
-            p.startNewSubPath(P(9.5f, 9.5f)); p.cubicTo(P(9.5f, 6.5f), P(14.5f, 6.5f), P(14.5f, 9.5f)); p.cubicTo(P(14.5f, 11.5f), P(12, 11.5f), P(12, 14));
-            p.addEllipse(P(11.3f, 16.6f).x, P(11.3f, 16.6f).y, 1.4f * s, 1.4f * s);
-            break;
+    if (isMouseOver()) {
+        g.setColour(vui::cream.withAlpha(.12f));
+        g.fillRoundedRectangle(getLocalBounds().toFloat(), 3);
     }
-    g.setColour(isMouseOver() ? ink : dim);
-    g.strokePath(p, juce::PathStrokeType(1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
 void TabLabel::paint(juce::Graphics& g) {
@@ -196,7 +169,7 @@ int EqDisplay::bandAt(juce::Point<float> p) const {
 }
 void EqDisplay::paint(juce::Graphics& g) {
     auto r = getLocalBounds().toFloat();
-    g.setColour(juce::Colours::black.withAlpha(.25f)); g.fillRoundedRectangle(r, 5);
+    g.setColour(juce::Colour(0xff1a1918)); g.fillRoundedRectangle(r, 5);
     g.setColour(juce::Colours::black); g.drawRoundedRectangle(r.reduced(.5f), 5, 1);
     g.setColour(juce::Colour(0xff262627));
     for (float f : { 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f, 10000.f }) g.drawVerticalLine((int) xOf(f), 6, r.getBottom() - 6);
@@ -256,8 +229,7 @@ void EqDisplay::mouseDoubleClick(const juce::MouseEvent& e) { int b = bandAt(e.p
 //============================================================================== Panel
 Panel::Panel(ReverbProcessor& p) : proc(p), eq(p) {
     setLookAndFeel(&look);
-    logo = juce::ImageCache::getFromMemory(BinaryData::swellmark_png, BinaryData::swellmark_pngSize);
-    renderTextures();
+
     auto knob = [&](std::vector<std::unique_ptr<Knob>>& list, const char* id, const char* name, std::function<juce::String(float)> f, bool small) {
         list.push_back(std::make_unique<Knob>(p, id, name, std::move(f), small));
         addAndMakeVisible(*list.back());
@@ -300,91 +272,33 @@ Panel::Panel(ReverbProcessor& p) : proc(p), eq(p) {
 }
 Panel::~Panel() { setLookAndFeel(nullptr); }
 
-void Panel::renderTextures() {
-    auto makeWood = [](int seed) {
-        juce::Image img(juce::Image::ARGB, 34, H, true);
-        juce::Graphics g(img);
-        juce::ColourGradient base(juce::Colour(0xff7a4524), 0, 0, juce::Colour(0xff683820), 0, (float) H, false);
-        base.addColour(.3, juce::Colour(0xff5e3219)); base.addColour(.55, juce::Colour(0xff6f3d1f)); base.addColour(.8, juce::Colour(0xff4f2913));
-        g.setGradientFill(base); g.fillAll();
-        juce::Random r(seed);
-        for (int i = 0; i < 70; ++i) {
-            float x = r.nextFloat() * 34;
-            juce::Path p; p.startNewSubPath(x, 0);
-            for (int y = 16; y <= H + 16; y += 16) { x += (r.nextFloat() - .5f) * 1.3f; p.lineTo(x, (float) y); }
-            bool light = r.nextFloat() < .25f;
-            g.setColour((light ? juce::Colour(0xffffc890) : juce::Colour(0xff1e0c04)).withAlpha(light ? .05f + r.nextFloat() * .06f : .08f + r.nextFloat() * .22f));
-            g.strokePath(p, juce::PathStrokeType(.4f + r.nextFloat() * 1.6f));
-        }
-        for (int k = 0; k < 2; ++k) {
-            float cy = (float) H * (.25f + .45f * (float) k) + r.nextFloat() * 40;
-            juce::ColourGradient knot(juce::Colour(0xff1e0c04).withAlpha(.35f), 16, cy, juce::Colours::transparentBlack, 34, cy, true);
-            g.setGradientFill(knot); g.fillEllipse(-4, cy - 40, 42, 80);
-        }
-        juce::ColourGradient edge(juce::Colours::black.withAlpha(.45f), 0, 0, juce::Colours::black.withAlpha(.5f), 34, 0, false);
-        edge.addColour(.18, juce::Colours::transparentBlack); edge.addColour(.5, juce::Colours::white.withAlpha(.06f)); edge.addColour(.82, juce::Colours::transparentBlack);
-        g.setGradientFill(edge); g.fillAll();
-        return img;
-    };
-    woodL = makeWood(7); woodR = makeWood(19);
-    metal = vui::brushedFace(1000, H);
-}
-
 void Panel::resized() {
-    mainKnobs[0]->setBounds((int) X0 + 30, 66, 132, 182);
-    mainKnobs[1]->setBounds((int) X0 + 168, 78, 88, 136);
-    mainKnobs[2]->setBounds((int) X0 + 258, 78, 66, 114);
-    categoryBox.setBounds((int) X0 + 356, 100, 250, 40);
-    programBox.setBounds((int) X0 + 356, 152, 250, 40);
-    meters.setBounds((int) X0 + 636, 76, 340, 150);
-    vlf->setBounds((int) X0 + 185, 244, 260, 40);
-    earlyLate->setBounds((int) X0 + 515, 244, 260, 40);
-    advTab.setBounds((int) X0 + 36, 296, 210, 34);
-    eqTab.setBounds((int) X0 + 250, 296, 200, 34);
-    int x = (int) X0 + 1000 - 32;
-    for (auto* b : { &help, &settings, &folder, &save }) { x -= 30; b->setBounds(x, 18, 22, 22); }
-    // Advanced groups: weights 1,1,2,2,4 across the face.
-    const int weights[5] { 1, 1, 2, 2, 4 }, counts[5] { 1, 1, 2, 2, 4 };
-    float unit = (948 - 40) / 10.f, gx = X0 + 26;
-    int k = 0;
-    for (int gi = 0; gi < 5; ++gi) {
-        float gw = unit * (float) weights[gi];
-        float kw = (gw - 12) / (float) counts[gi];
-        for (int j = 0; j < counts[gi]; ++j) advKnobs[(size_t) k++]->setBounds(juce::roundToInt(gx + 6 + kw * (float) j), 372, juce::roundToInt(kw), 118);
-        gx += gw + 10;
+    // Positions follow the original photographed dial and readout centres.
+    mainKnobs[0]->place(panelRect(126,166,202,202), panelRect(156,379,160,39));
+    mainKnobs[1]->place(panelRect(387,180,109,109), panelRect(365,311,155,33));
+    mainKnobs[2]->place(panelRect(533,178,101,101), panelRect(530,295,105,34));
+    constexpr int centres[]{186,379,551,694,861,1010,1174,1315,1464,1610};
+    for (size_t i=0; i<advKnobs.size(); ++i) {
+        int x = centres[i];
+        advKnobs[i]->place(panelRect(x-56,637,112,112), panelRect(x-60,766,120,36));
     }
-    eq.setBounds((int) X0 + 26, 342, 948, 154);
+    categoryBox.setBounds(panelRect(681,161,430,77));
+    programBox.setBounds(panelRect(681,252,430,77));
+    meters.setBounds(panelRect(1255,144,417,193));
+    vlf->setBounds(panelRect(402,377,467,79));
+    earlyLate->setBounds(panelRect(971,377,491,79));
+    advTab.setBounds(panelRect(105,479,338,54));
+    eqTab.setBounds(panelRect(443,479,323,54));
+    eq.setBounds(panelRect(77,531,1623,299));
+    int x=1406;
+    for (auto* button : { &save, &folder, &settings, &help }) {
+        button->setBounds(panelRect(x,23,60,61));
+        x+=65;
+    }
 }
 
 void Panel::paint(juce::Graphics& g) {
-    g.drawImageAt(woodL, 0, 0); g.drawImageAt(woodR, (int) X0 + 1000, 0);
-    g.drawImageAt(metal, (int) X0, 0);
-    auto face = juce::Rectangle<float>(X0, 0, 1000, (float) H);
-    // Top bar.
-    g.setColour(juce::Colours::black.withAlpha(.18f)); g.fillRect(face.withHeight(58));
-    g.setColour(lineDark); g.drawHorizontalLine(58, X0, X0 + 1000);
-    g.setColour(juce::Colours::white.withAlpha(.04f)); g.drawHorizontalLine(59, X0, X0 + 1000);
-    vui::brand(g, logo, X0 + 24, 11);
-    drawLabel(g, "VINTAGE REVERB", { X0 + 260, 12, 480, 34 }, 24, ink, juce::Justification::centred, .16f, true);
-    // Tabs and advanced area.
-    g.setColour(juce::Colours::black.withAlpha(.25f)); g.fillRect(X0, 296.f, 1000.f, 34.f);
-    g.setColour(lineDark); g.drawHorizontalLine(296, X0, X0 + 1000);
-    g.setColour(juce::Colours::white.withAlpha(.04f)); g.drawHorizontalLine(297, X0, X0 + 1000);
-    g.setColour(juce::Colours::black.withAlpha(.28f)); g.fillRect(X0, 330.f, 1000.f, (float) H - 330);
-    if (!showEq) {
-        static const char* heads[5] { "REFLECTIONS", "PRE-DELAY", "DELAY", "ROLL-OFF", "FREQUENCY DEPENDENT DECAY TIME" };
-        const int weights[5] { 1, 1, 2, 2, 4 };
-        float unit = (948 - 40) / 10.f, gx = X0 + 26;
-        for (int gi = 0; gi < 5; ++gi) {
-            auto r = juce::Rectangle<float>(gx, 342, unit * (float) weights[gi], 154);
-            vui::plate(g, r, heads[gi]);
-            gx += r.getWidth() + 10;
-        }
-    }
-    g.setColour(juce::Colours::black); g.drawRect(face, 1);
-    g.setColour(dim.withAlpha(.8f)); g.setFont(vui::font(10, false, .04f));
-    g.drawText("v" JucePlugin_VersionString "  /  by @sevyondatracks", juce::Rectangle<float>(X0 + 700, (float) H - 14, 268, 12), juce::Justification::centredRight, false);
-    for (auto pt : { juce::Point<float>(X0 + 12, 12), { X0 + 988, 12 }, { X0 + 12, (float) H - 12 }, { X0 + 988, (float) H - 12 } }) vui::screw(g, pt.x, pt.y);
+    g.drawImage(faceplate(), getLocalBounds().toFloat());
 }
 
 void Panel::timerCallback() {

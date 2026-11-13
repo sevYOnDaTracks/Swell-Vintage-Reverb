@@ -20,7 +20,7 @@ if(APPLE)
 endif()
 # Never change PLUGIN_CODE / BUNDLE_ID once released: saved DAW sessions would lose the plugin.
 juce_add_plugin(SwellReverb COMPANY_NAME "Swell-audio" BUNDLE_ID "fr.swell-audio.reverb" PLUGIN_MANUFACTURER_CODE Swel PLUGIN_CODE Srvb FORMATS ${REVERB_FORMATS} PRODUCT_NAME "Swell Reverb" IS_SYNTH FALSE NEEDS_MIDI_INPUT FALSE NEEDS_MIDI_OUTPUT FALSE COPY_PLUGIN_AFTER_BUILD FALSE)
-juce_add_binary_data(ReverbAssets SOURCES swell-mark.png)
+juce_add_binary_data(ReverbAssets SOURCES swell-mark.png vintage-reverb.png)
 target_sources(SwellReverb PRIVATE Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/Licence/SwellLicence.cpp)
 target_compile_definitions(SwellReverb PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
 target_link_libraries(SwellReverb PRIVATE monocypher juce::juce_cryptography ReverbAssets juce::juce_audio_utils juce::juce_dsp PUBLIC juce::juce_recommended_config_flags)
