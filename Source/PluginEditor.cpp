@@ -1,8 +1,9 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "VintageUI.h"
 
 namespace {
-const juce::Colour ink { 0xfff2f2f2 }, dim { 0xff9c9c9c }, muted { 0xff6a6a6a }, well { 0xff0f0f10 }, lineDark { 0xff0b0b0c };
+const juce::Colour ink { 0xffeadfc6 }, dim { 0xffa89f8c }, muted { 0xff6e675a }, well { 0xff0f0f10 }, lineDark { 0xff0b0b0c };
 constexpr float X0 = 34; // left edge of the metal face (after the wooden cheek)
 
 juce::Font uiFont(float size, bool bold = false, float kerning = 0) {
@@ -24,14 +25,6 @@ juce::String mixText(float m) {
     float d = juce::Decibels::gainToDecibels(std::min(1.f, 2 * (1 - m)), -60.f), w = juce::Decibels::gainToDecibels(std::min(1.f, 2 * m), -60.f);
     return db(d) + " / " + db(w) + " dB";
 }
-void screw(juce::Graphics& g, float cx, float cy) {
-    juce::ColourGradient grad(juce::Colour(0xff8d8d8d), cx - 2, cy - 2, juce::Colour(0xff3a3a3a), cx + 4, cy + 4, true);
-    g.setColour(juce::Colours::black.withAlpha(.6f)); g.fillEllipse(cx - 5.5f, cy - 4.5f, 11, 11);
-    g.setGradientFill(grad); g.fillEllipse(cx - 5.5f, cy - 5.5f, 11, 11);
-    g.setColour(juce::Colour(0xff222222));
-    juce::Path slot; slot.addRectangle(-4.f, -1.f, 8.f, 2.f);
-    g.fillPath(slot, juce::AffineTransform::rotation(.6f).translated(cx, cy));
-}
 }
 
 //============================================================================== Look
@@ -44,38 +37,30 @@ ReverbLook::ReverbLook() {
 }
 
 void ReverbLook::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float pos, float start, float end, juce::Slider& s) {
-    const bool small = s.getProperties()["small"];
-    const bool bipolar = s.getProperties()["bipolar"];
-    auto r = juce::Rectangle<float>((float) x, (float) y, (float) w, (float) h);
-    float size = std::min(r.getWidth(), r.getHeight());
-    auto c = r.getCentre();
-    float arcR = size / 2 - 3, bodyR = arcR - (small ? 5.f : 7.f), thick = small ? 3.f : 4.f;
-    float angle = start + pos * (end - start), from = bipolar ? (start + end) / 2 : start;
-
-    juce::Path track; track.addCentredArc(c.x, c.y, arcR, arcR, 0, start, end, true);
-    g.setColour(well); g.strokePath(track, juce::PathStrokeType(thick, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    if (std::abs(angle - from) > .01f) {
-        juce::Path arc; arc.addCentredArc(c.x, c.y, arcR, arcR, 0, std::min(from, angle), std::max(from, angle), true);
-        g.setColour(ink.withAlpha(.13f)); g.strokePath(arc, juce::PathStrokeType(thick + 5, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.setColour(ink); g.strokePath(arc, juce::PathStrokeType(thick, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    }
-    g.setColour(juce::Colours::black.withAlpha(.6f)); g.fillEllipse(c.x - bodyR, c.y - bodyR + 2.5f, bodyR * 2, bodyR * 2);
-    juce::ColourGradient body(juce::Colour(0xff4c4c4d), c.x - bodyR * .3f, c.y - bodyR * .55f, juce::Colour(0xff0c0c0c), c.x + bodyR * .6f, c.y + bodyR, true);
-    body.addColour(.55, juce::Colour(0xff212122));
-    g.setGradientFill(body); g.fillEllipse(c.x - bodyR, c.y - bodyR, bodyR * 2, bodyR * 2);
-    g.setColour(juce::Colour(0xff050505)); g.drawEllipse(c.x - bodyR, c.y - bodyR, bodyR * 2, bodyR * 2, 1);
-    auto at = [&](float rr) { return juce::Point<float>(c.x + rr * std::sin(angle), c.y - rr * std::cos(angle)); };
-    g.setColour(ink); g.drawLine(juce::Line<float>(at(bodyR * .35f), at(bodyR - 3)), small ? 2.2f : 3.f);
+    vui::knob(g, { (float) x, (float) y, (float) w, (float) h }, pos, start, end, s.getProperties()["small"], s.getProperties()["bipolar"], vui::cream);
 }
 
 void ReverbLook::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, float pos, float, float, juce::Slider::SliderStyle, juce::Slider&) {
     float cy = (float) y + (float) h / 2;
-    auto track = juce::Rectangle<float>((float) x, cy - 2, (float) w, 4);
-    g.setColour(well); g.fillRoundedRectangle(track, 2);
-    g.setColour(ink); g.fillRoundedRectangle(track.withRight(pos), 2);
-    g.setColour(juce::Colours::black.withAlpha(.6f)); g.fillEllipse(pos - 7, cy - 6, 14, 14);
-    juce::ColourGradient thumb(juce::Colours::white, pos - 3, cy - 4, juce::Colour(0xff9a9a9a), pos + 5, cy + 6, true);
-    g.setGradientFill(thumb); g.fillEllipse(pos - 7, cy - 7, 14, 14);
+    auto slot = juce::Rectangle<float>((float) x, cy - 3, (float) w, 6);
+    g.setColour(juce::Colours::black); g.fillRoundedRectangle(slot, 3);
+    g.setColour(juce::Colours::white.withAlpha(.06f)); g.drawRoundedRectangle(slot.translated(0, 1), 3, 1);
+    auto lit = slot.reduced(1.5f).withRight(pos);
+    g.setColour(vui::cream.withAlpha(.18f)); g.fillRoundedRectangle(lit.expanded(0, 2), 3);
+    g.setColour(vui::cream); g.fillRoundedRectangle(lit, 1.5f);
+    for (int i = 0; i <= 20; ++i) {
+        float tx = (float) x + (float) w * (float) i / 20;
+        g.setColour(vui::creamDim.withAlpha(i % 5 == 0 ? .55f : .25f));
+        g.drawVerticalLine((int) tx, cy + 8, cy + (i % 5 == 0 ? 13.f : 11.f));
+    }
+    // Fader cap: brushed metal with a centre line.
+    auto cap = juce::Rectangle<float>(pos - 11, cy - 12, 22, 24);
+    g.setColour(juce::Colours::black.withAlpha(.7f)); g.fillRoundedRectangle(cap.translated(0, 2), 3);
+    juce::ColourGradient m(juce::Colour(0xffd9d9d9), 0, cap.getY(), juce::Colour(0xff6c6c6c), 0, cap.getBottom(), false);
+    m.addColour(.45, juce::Colour(0xffa9a9a9)); m.addColour(.55, juce::Colour(0xff8a8a8a));
+    g.setGradientFill(m); g.fillRoundedRectangle(cap, 3);
+    g.setColour(juce::Colours::black); g.drawRoundedRectangle(cap, 3, 1);
+    g.setColour(juce::Colour(0xff2a2a2a)); g.fillRect(pos - .75f, cap.getY() + 3, 1.5f, cap.getHeight() - 6);
 }
 
 //============================================================================== Knob
@@ -100,8 +85,8 @@ void Knob::resized() {
 }
 void Knob::paint(juce::Graphics& g) {
     auto r = getLocalBounds().toFloat();
-    drawLabel(g, label, r.removeFromTop(small ? 18.f : 22.f), small ? 12.5f : 15.f, ink);
-    drawLabel(g, format((float) slider.getValue()), r.removeFromBottom(small ? 18.f : 20.f), small ? 12 : 13, ink.withAlpha(.92f));
+    drawLabel(g, small ? label : label.toUpperCase(), r.removeFromTop(small ? 18.f : 22.f), small ? 12.5f : 15.f, ink, juce::Justification::centred, small ? 0.f : .12f, !small);
+    vui::glowText(g, format((float) slider.getValue()), r.removeFromBottom(small ? 18.f : 20.f), vui::font(small ? 12.5f : 14.f), ink);
 }
 
 //============================================================================== HSlider
@@ -121,17 +106,7 @@ void HSlider::paint(juce::Graphics& g) {
 }
 
 //============================================================================== PresetBox
-void PresetBox::paint(juce::Graphics& g) {
-    auto r = getLocalBounds().toFloat().reduced(.5f);
-    g.setColour(juce::Colours::white.withAlpha(.05f)); g.drawRoundedRectangle(r.translated(0, 1), 4, 1);
-    g.setColour(juce::Colour(0xff0c0c0d)); g.fillRoundedRectangle(r, 4);
-    g.setColour(juce::Colours::black); g.drawRoundedRectangle(r, 4, 1);
-    juce::ColourGradient inner(juce::Colours::black.withAlpha(.7f), 0, r.getY(), juce::Colours::transparentBlack, 0, r.getY() + 7, false);
-    g.setGradientFill(inner); g.fillRoundedRectangle(r.reduced(1), 4);
-    drawLabel(g, juce::CharPointer_UTF8("\xe2\x80\xb9"), r.withWidth(34), 20, ink.withAlpha(.8f));
-    drawLabel(g, juce::CharPointer_UTF8("\xe2\x80\xba"), r.withTrimmedLeft(r.getWidth() - 34), 20, ink.withAlpha(.8f));
-    drawLabel(g, label, r.reduced(34, 0), 15.5f, ink);
-}
+void PresetBox::paint(juce::Graphics& g) { vui::presetDisplay(g, getLocalBounds().toFloat().reduced(.5f), label); }
 void PresetBox::mouseDown(const juce::MouseEvent& e) {
     if (e.x < 34) { if (onPrev) onPrev(); }
     else if (e.x > getWidth() - 34) { if (onNext) onNext(); }
@@ -155,16 +130,10 @@ void Meters::paint(juce::Graphics& g) {
             y += 16;
         }
         drawLabel(g, names[row], { 0, y, x0 - 10, rowH }, 11, dim, juce::Justification::centredRight, .12f);
+        g.setColour(juce::Colours::black.withAlpha(.6f)); g.fillRoundedRectangle(x0 - 4, y + 2, leds * (ledW + gap) + 4, 18, 3);
         for (int k = 0; k < leds; ++k) {
             auto led = juce::Rectangle<float>(x0 + (float) k * (ledW + gap), y + 6, ledW, 10);
-            bool on = level[(size_t) row] >= ledDb(k);
-            if (on) {
-                g.setColour(ink.withAlpha(.18f)); g.fillRoundedRectangle(led.expanded(2), 3);
-                g.setColour(ink); g.fillRoundedRectangle(led, 1.5f);
-            } else {
-                g.setColour(juce::Colour(0xff1d1d1e)); g.fillRoundedRectangle(led, 1.5f);
-                g.setColour(juce::Colours::black.withAlpha(.6f)); g.drawRoundedRectangle(led, 1.5f, 1);
-            }
+            vui::led(g, led, (float) k / (leds - 1), level[(size_t) row] >= ledDb(k));
         }
         y += rowH;
     }
@@ -203,12 +172,13 @@ void IconButton::paint(juce::Graphics& g) {
 }
 
 void TabLabel::paint(juce::Graphics& g) {
-    auto r = getLocalBounds().toFloat();
-    drawLabel(g, name, r, 12.5f, active ? ink : muted, juce::Justification::centredLeft, .2f);
-    if (active) {
-        float w = uiFont(12.5f, false, .2f).getStringWidthFloat(name);
-        g.setColour(ink); g.fillRect(0.f, r.getBottom() - 2, w, 2.f);
-    }
+    auto r = getLocalBounds().toFloat().reduced(1, 0).withTrimmedTop(3);
+    juce::Path tab; tab.addRoundedRectangle(r.getX(), r.getY(), r.getWidth(), r.getHeight() + 4, 5, 5, true, true, false, false);
+    g.setColour(juce::Colours::black.withAlpha(.6f)); g.fillPath(tab, juce::AffineTransform::translation(0, -1));
+    juce::ColourGradient grad(juce::Colour(active ? 0xff3a3833 : 0xff1e1d20), 0, r.getY(), juce::Colour(active ? 0xff232220 : 0xff141316), 0, r.getBottom(), false);
+    g.setGradientFill(grad); g.fillPath(tab);
+    g.setColour(active ? vui::cream.withAlpha(.35f) : juce::Colours::white.withAlpha(.05f)); g.strokePath(tab, juce::PathStrokeType(1));
+    drawLabel(g, name, r, 12.5f, active ? ink : muted, juce::Justification::centred, .16f, active);
 }
 
 //============================================================================== EQ
@@ -321,7 +291,7 @@ Panel::Panel(ReverbProcessor& p) : proc(p), eq(p) {
     save.onClick = [this] { savePreset(); }; folder.onClick = [this] { folderMenu(); }; settings.onClick = [this] { settingsMenu(); };
     help.onClick = [] {
         juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::NoIcon, "Swell Reverb",
-            "Vintage Reverb - version 0.1\nSwell Audio, by @sevyondatracks\n\nDouble-clic sur un bouton : valeur par defaut.\nShift + glisser : reglage fin.\nLes presets ne touchent jamais au Mix ni au Gain.");
+            "Vintage Reverb - version 0.2\nSwell Audio, by @sevyondatracks\n\nDouble-clic sur un bouton : valeur par defaut.\nShift + glisser : reglage fin.\nLes presets ne touchent jamais au Mix ni au Gain.");
     };
     showTab(false);
     refreshNames();
@@ -357,16 +327,7 @@ void Panel::renderTextures() {
         return img;
     };
     woodL = makeWood(7); woodR = makeWood(19);
-    metal = juce::Image(juce::Image::RGB, 1000, H, true);
-    juce::Graphics g(metal);
-    juce::ColourGradient grad(juce::Colour(0xff2a2a2b), 0, 0, juce::Colour(0xff171718), 0, (float) H, false);
-    grad.addColour(.6, juce::Colour(0xff202021));
-    g.setGradientFill(grad); g.fillAll();
-    juce::Random r(3);
-    for (int x = 0; x < 1000; ++x) {
-        g.setColour((r.nextBool() ? juce::Colours::white : juce::Colours::black).withAlpha(r.nextFloat() * .035f));
-        g.drawVerticalLine(x, 0, (float) H);
-    }
+    metal = vui::brushedFace(1000, H);
 }
 
 void Panel::resized() {
@@ -378,8 +339,8 @@ void Panel::resized() {
     meters.setBounds((int) X0 + 636, 76, 340, 150);
     vlf->setBounds((int) X0 + 185, 244, 260, 40);
     earlyLate->setBounds((int) X0 + 515, 244, 260, 40);
-    advTab.setBounds((int) X0 + 36, 296, 200, 34);
-    eqTab.setBounds((int) X0 + 1000 - 36 - 150, 296, 150, 34);
+    advTab.setBounds((int) X0 + 36, 296, 210, 34);
+    eqTab.setBounds((int) X0 + 250, 296, 200, 34);
     int x = (int) X0 + 1000 - 32;
     for (auto* b : { &help, &settings, &folder, &save }) { x -= 30; b->setBounds(x, 18, 22, 22); }
     // Advanced groups: weights 1,1,2,2,4 across the face.
@@ -403,11 +364,8 @@ void Panel::paint(juce::Graphics& g) {
     g.setColour(juce::Colours::black.withAlpha(.18f)); g.fillRect(face.withHeight(58));
     g.setColour(lineDark); g.drawHorizontalLine(58, X0, X0 + 1000);
     g.setColour(juce::Colours::white.withAlpha(.04f)); g.drawHorizontalLine(59, X0, X0 + 1000);
-    g.setColour(ink);
-    g.drawImageWithin(logo, (int) X0 + 26, 13, 34, 32, juce::RectanglePlacement::centred, true);
-    drawLabel(g, "swell", { X0 + 66, 9, 120, 28 }, 25, ink, juce::Justification::centredLeft);
-    drawLabel(g, "AUDIO", { X0 + 68, 35, 120, 12 }, 8.5f, dim, juce::Justification::centredLeft, .55f);
-    drawLabel(g, "VINTAGE REVERB", { X0 + 300, 18, 400, 22 }, 13, dim, juce::Justification::centred, .5f);
+    vui::brand(g, logo, X0 + 24, 11);
+    drawLabel(g, "VINTAGE  REVERB", { X0 + 260, 14, 480, 30 }, 22, ink, juce::Justification::centred, .62f);
     // Tabs and advanced area.
     g.setColour(juce::Colours::black.withAlpha(.25f)); g.fillRect(X0, 296.f, 1000.f, 34.f);
     g.setColour(lineDark); g.drawHorizontalLine(296, X0, X0 + 1000);
@@ -419,17 +377,12 @@ void Panel::paint(juce::Graphics& g) {
         float unit = (948 - 40) / 10.f, gx = X0 + 26;
         for (int gi = 0; gi < 5; ++gi) {
             auto r = juce::Rectangle<float>(gx, 342, unit * (float) weights[gi], 154);
-            g.setColour(juce::Colours::black.withAlpha(.18f)); g.fillRoundedRectangle(r, 5);
-            g.setColour(juce::Colours::white.withAlpha(.04f)); g.drawRoundedRectangle(r.translated(0, 1), 5, 1);
-            g.setColour(juce::Colours::black); g.drawRoundedRectangle(r.reduced(.5f), 5, 1);
-            drawLabel(g, heads[gi], r.withHeight(26).reduced(4, 0), 11.5f, dim, juce::Justification::centred, .16f);
-            g.setColour(juce::Colours::black); g.drawHorizontalLine((int) r.getY() + 26, r.getX() + 8, r.getRight() - 8);
-            g.setColour(juce::Colours::white.withAlpha(.04f)); g.drawHorizontalLine((int) r.getY() + 27, r.getX() + 8, r.getRight() - 8);
+            vui::plate(g, r, heads[gi]);
             gx += r.getWidth() + 10;
         }
     }
     g.setColour(juce::Colours::black); g.drawRect(face, 1);
-    for (auto pt : { juce::Point<float>(X0 + 12, 12), { X0 + 988, 12 }, { X0 + 12, (float) H - 12 }, { X0 + 988, (float) H - 12 } }) screw(g, pt.x, pt.y);
+    for (auto pt : { juce::Point<float>(X0 + 12, 12), { X0 + 988, 12 }, { X0 + 12, (float) H - 12 }, { X0 + 988, (float) H - 12 } }) vui::screw(g, pt.x, pt.y);
 }
 
 void Panel::timerCallback() {

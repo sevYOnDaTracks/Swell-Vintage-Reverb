@@ -6,3 +6,5 @@ Windows/
 boutique/
 Demo/renders/
 dist-licence/
+build-mac/
+._*

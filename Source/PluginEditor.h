@@ -99,6 +99,7 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     std::function<void(float)> onScale;
+    void filmTick() { timerCallback(); }
     static constexpr int W = 1068, H = 510;
 private:
     ReverbProcessor& proc;
